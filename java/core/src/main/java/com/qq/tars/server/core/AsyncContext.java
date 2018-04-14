@@ -47,7 +47,7 @@ public final class AsyncContext {
     }
 
     private ServantHomeSkeleton getCapHomeSkeleton() {
-        AppContextImpl appContext = container.getDefaultAppContext();
+        AppContext appContext = container.getDefaultAppContext();
         return appContext.getCapHomeSkeleton(this.context.request().getServantName());
     }
 
@@ -63,6 +63,10 @@ public final class AsyncContext {
     public <T> void setAttribute(String name, T value) {
         this.context.setAttribute(name, value);
     }
+    
+    public Context getContext() {
+        return this.context;
+    }
 
     public void writeException(Throwable ex) throws IOException {
         TarsServantResponse response = this.context.response();
@@ -71,7 +75,7 @@ public final class AsyncContext {
         response.setResult(null);
         response.asyncCallEnd();
 
-        getCapHomeSkeleton().postInvokeCapHomeSkeleton(context);
+        getCapHomeSkeleton().postInvokeCapHomeSkeleton();
         Long startTime = this.context.getAttribute(Context.INTERNAL_START_TIME);
         TarsServantProcessor.printServiceFlowLog(flowLogger, this.context.request(), response.getRet(), (System.currentTimeMillis() - startTime.longValue()), ex.toString());
 
@@ -84,7 +88,7 @@ public final class AsyncContext {
         response.setResult(result);
         response.asyncCallEnd();
 
-        getCapHomeSkeleton().postInvokeCapHomeSkeleton(context);
+        getCapHomeSkeleton().postInvokeCapHomeSkeleton();
         Long startTime = this.context.getAttribute(Context.INTERNAL_START_TIME);
         TarsServantProcessor.printServiceFlowLog(flowLogger, this.context.request(), response.getRet(), (System.currentTimeMillis() - startTime.longValue()), "");
     }
