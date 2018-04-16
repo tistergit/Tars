@@ -1,10 +1,13 @@
 #!/usr/bin/env sh
 
-work_dir=`pwd`/../Tars
+work_dir=`pwd`/Tars
 tars_app_dir='/usr/local/app/tars'
 
-read -p "Please Input Tars Tegistry IP ?" your_machine_ip
-read -p "Drop Old Database And Config (Y/N) ?" drop_flag
+eth0_ip=`ip addr show | grep inet | awk '{print $2}' | awk -F'/' '{print $1}' | grep -v '127' | grep -v '172'`
+
+
+read -e -p "Please Input Tars Tegistry IP ?  " -i $eth0_ip your_machine_ip
+read -e -p "Drop Old Database And Config (Y/N) ?  " -i 'Y' drop_flag
 
 
 ###@@@ service setting
@@ -17,7 +20,7 @@ yum -y install wget git
 
 yum -y install epel-release glibc-devel bison flex cmake mariadb-server mariadb-devel gcc gcc-c++
 
-[[ -e mariadb-5.5.56-linux-x86_64.tar.gz ]] || wget https://downloads.mariadb.org/interstitial/mariadb-5.5.56/bintar-linux-x86_64/mariadb-5.5.56-linux-x86_64.tar.gz/from/http%3A//ftp.hosteurope.de/mirror/archive.mariadb.org/ -O mariadb-5.5.56-linux-x86_64.tar.gz 
+[[ -e mariadb-5.5.56-linux-x86_64.tar.gz ]] || wget -c https://downloads.mariadb.org/interstitial/mariadb-5.5.56/bintar-linux-x86_64/mariadb-5.5.56-linux-x86_64.tar.gz/from/http%3A//ftp.hosteurope.de/mirror/archive.mariadb.org/ -O mariadb-5.5.56-linux-x86_64.tar.gz 
 
 
 [[ -e /usr/local/mysql ]] || tar zxf mariadb-5.5.56-linux-x86_64.tar.gz -C /usr/local
@@ -41,6 +44,19 @@ chmod u+x build.sh
 
 
 ##setup mysql
+if ! grep -q character-set-server /etc/my.cnf
+then
+sed -i '/\[mysqld\]/ a \
+character-set-server = utf8
+' /etc/my.cnf
+
+sed -i '/\[client\]/ a \
+default-character-set=utf8
+' /etc/my.cnf.d/client.cnf
+
+fi
+
+
 
 systemctl enable mariadb
 systemctl start mariadb
@@ -60,7 +76,7 @@ make tarsqueryproperty-tar
 
 ###
 mkdir -p ${tars_app_dir}
-tar xzfv framework.tgz -C ${tars_app_dir}
+tar xzf framework.tgz -C ${tars_app_dir}
 
 
 ##config
@@ -100,15 +116,15 @@ sh ${tars_app_dir}/tarspatch/util/init.sh
 
 ##build java
 cd ${work_dir}/java
-mvn clean install -s ../build/settings.xml
-mvn clean install -f core/client.pom.xml -s ../build/settings.xml
-mvn clean install -f core/server.pom.xml -s ../build/settings.xml
+mvn  install -s ../build/settings.xml
+mvn  install -f core/client.pom.xml -s ../build/settings.xml
+mvn  install -f core/server.pom.xml -s ../build/settings.xml
 
 
 ### web
 cd ${work_dir}/web
-[[ -e resin-4.0.55.tar.gz ]] || wget http://caucho.com/download/resin-4.0.55.tar.gz
-[[ -e /usr/local/resin ]] || tar zvf resin-4.0.55.tar.gz -C /usr/local
+[[ -e resin-4.0.55.tar.gz ]] || wget -c http://caucho.com/download/resin-4.0.55.tar.gz
+[[ -e /usr/local/resin ]] || tar zxf resin-4.0.55.tar.gz -C /usr/local
 [[ -e /usr/local/resin ]] || ln -s /usr/local/resin-4.0.55 /usr/local/resin
 
 [[ -d /usr/local/app/patchs/tars.upload ]] || mkdir -p /usr/local/app/patchs/tars.upload/
@@ -134,11 +150,19 @@ fi
 [[ -d /data/log/tars ]] || mkdir -p /data/log/tars
 
 ##build web
-mvn clean package -s ../build/settings.xml
+mvn  package -s ../build/settings.xml
 cp ./target/tars.war /usr/local/resin/webapps/
 
 ##@@ web config
 sed -i 's/webapps\/ROOT/webapps\/tars/g' /usr/local/resin/conf/resin.xml
-/usr/local/resin/bin/resin.sh restart
+sed -i '/<host-default>/a \
+ <character-encoding>UTF-8<\/character-encoding> ' /usr/local/resin/conf/resin.xml
+
+if [[ `netstat -lntp | grep 8080` ]] 
+  then
+    /usr/local/resin/bin/resin.sh restart
+  else 
+  	/usr/local/resin/bin/resin.sh start
+fi
 
 
